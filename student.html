@@ -4,6 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>학생용 스쿼트 자세 판별기</title>
+  <!-- 교수님 요청: 제목 / 학년군 / 기준값 / 클래스별 문구는 이 CONFIG에서 관리합니다. -->
+  <script>
+    // ================= 여기만 고치세요 (CONFIG) =================
+    const CONFIG = {
+      title: "스쿼트 자세 판별기",
+      grade: "mid",                 // 3~4학년 (low: 1~2학년, high: 5~6학년)
+      threshold: 0.75,              // 최고 예측 확률이 75% 미만이면 판별 보류
+      classes: {
+        // 반드시 metadata.json의 클래스 이름과 일치해야 합니다.
+        "올바른스쿼트(정면)": {
+          category: "correct", say: "올바른 스쿼트 자세예요! 👍",
+          hint: "잘했어요! 지금처럼 바른 자세를 유지하며 운동해 보세요!", feedback: ""
+        },
+        "올바른스쿼트(옆모습)": {
+          category: "correct", say: "올바른 스쿼트 자세예요! 👍",
+          hint: "잘했어요! 지금처럼 바른 자세를 유지하며 운동해 보세요!", feedback: ""
+        },
+        "잘못된스쿼트(무릎모임)": {
+          category: "bad_knee", say: "잘못된 스쿼트 중 무릎모임 유형일 가능성이 높습니다.",
+          hint: "AI는 무릎이 안쪽으로 모이는 유형으로 예측했어요. 선생님과 함께 확인해 보세요.",
+          feedback: "무릎이 발끝 방향을 따라가도록 하고, 무릎이 안쪽으로 모이지 않게 천천히 움직여 주세요."
+        },
+        "잘못된스쿼트(허리골반말림)": {
+          category: "bad_back", say: "잘못된 스쿼트 중 허리·골반 말림 유형일 가능성이 높습니다.",
+          hint: "AI는 허리나 골반이 말리는 유형으로 예측했어요. 선생님과 함께 확인해 보세요.",
+          feedback: "허리를 곧게 펴서 척추중립을 유지하며, 엉덩이가 말리기 직전까지만 앉으세요. 너무 깊이 앉지 않아도 됩니다. 앉을 때 상체가 너무 앞으로 기울어져 무릎이 발끝보다 과하게 나가는 것은 주의하세요."
+        }
+      },
+      unsure: { say: "잘 모르겠어요 🤔", hint: "몸 전체가 잘 보이도록 다시 촬영해 주세요." },
+      modelUrl: "./model.json",
+      metadataUrl: "./metadata.json"
+    };
+    // ============================================================
+  </script>
     <style>
       :root {
         --bg: #f6fbff;
@@ -372,7 +406,7 @@
   <body>
     <div class="app">
       <header class="header">
-        <h1>학생용 스쿼트 자세 판별기</h1>
+        <h1 id="appTitle">학생용 스쿼트 자세 판별기</h1>
         <p class="subtitle">
           자신의 스쿼트 사진을 넣어 자세가 올바른지 혹은 잘못된 부분이 있는지 판별해요.
         </p>
@@ -450,12 +484,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8.6/dist/teachablemachine-pose.min.js"></script>
 
     <script>
-      // 설정을 변경할 때는 이 CONFIG 부분만 수정하세요.
-      const CONFIG = {
-        MODEL_URL: './model.json',
-        METADATA_URL: './metadata.json',
-        MIN_CONFIDENCE: 0.75 // 75% 이상일 때 판별 결과 제공
-      };
+      const MODEL_URL = CONFIG.modelUrl;
+      const METADATA_URL = CONFIG.metadataUrl;
+      document.getElementById('appTitle').textContent = '학생용 ' + CONFIG.title;
+      document.title = '학생용 ' + CONFIG.title;
+      document.body.dataset.grade = CONFIG.grade;
 
       const modelStatus = document.getElementById('modelStatus');
       const uploadBtn = document.getElementById('uploadBtn');
@@ -494,12 +527,14 @@
           .replace(/[^a-z0-9가-힣]+/g, '');
       }
 
+      function getClassConfig(rawLabel) {
+        const normalized = normalizeLabel(rawLabel);
+        const entry = Object.entries(CONFIG.classes).find(([className]) => normalizeLabel(className) === normalized);
+        return entry ? entry[1] : null;
+      }
+
       function classifyLabel(rawLabel) {
-        const label = normalizeLabel(rawLabel);
-        if (label.includes('올바른') || label.includes('정상스쿼트')) return 'correct';
-        if (label.includes('무릎모임')) return 'bad_knee';
-        if (label.includes('허리골반말림') || label.includes('허리말림') || label.includes('골반말림') || label.includes('벗윙크') || label.includes('버트윙크')) return 'bad_back';
-        return 'unknown';
+        return getClassConfig(rawLabel)?.category || 'unknown';
       }
 
       function setModelStatus(text, type = '') {
@@ -574,54 +609,35 @@
       function renderResult(result) {
         const maxProbability = Number(result.probability || 0) * 100;
         const percentageText = `${maxProbability.toFixed(1)}%`;
-        const isHighConfidence = result.probability >= CONFIG.MIN_CONFIDENCE;
+        const isHighConfidence = result.probability >= CONFIG.threshold;
         updateConfidenceBar(result.probability, result.category, isHighConfidence);
 
         resultTitle.textContent = '결과';
         resultImage.src = currentPreviewSrc || previewImage.src;
 
-        if (!isHighConfidence) {
-          resultTitle.textContent = '잘 모르겠어요 🤔';
+        const classConfig = getClassConfig(result.label);
+        if (!isHighConfidence || !classConfig) {
+          resultTitle.textContent = CONFIG.unsure.say;
           resultTitle.className = 'result-unknown';
-          resultDescription.textContent = '몸 전체가 잘 보이도록 다시 촬영해 주세요.';
+          resultDescription.textContent = CONFIG.unsure.hint;
           probabilityBadge.className = 'probability probability-unknown';
           probabilityBadge.textContent = `확률: ${percentageText}`;
+          updateConfidenceBar(result.probability, 'unknown', false);
           feedbackBox.classList.add('hidden');
           resultPanel.classList.remove('hidden');
           return;
         }
 
-        if (result.category === 'correct') {
-          resultTitle.textContent = '올바른 스쿼트 자세예요! 👍';
-          resultTitle.className = 'result-good';
-          resultDescription.textContent = '잘했어요! 지금처럼 바른 자세를 유지하며 운동해 보세요!';
-          probabilityBadge.className = 'probability probability-good';
-          probabilityBadge.textContent = `확률: ${percentageText}`;
-          feedbackBox.classList.add('hidden');
-        } else if (result.category === 'bad_back') {
-          resultTitle.textContent = '잘못된 스쿼트 중 허리·골반 말림 유형일 가능성이 높습니다.';
-          resultTitle.className = 'result-bad';
-          resultDescription.textContent =
-          'AI는 허리나 골반이 말리는 유형으로 예측했어요. 선생님과 함께 확인해 보세요.';
-          probabilityBadge.className = 'probability probability-bad';
-          probabilityBadge.textContent = `확률: ${percentageText}`;
-          feedbackText.textContent =
-          '허리를 곧게 펴서 척추중립을 유지하며, 엉덩이가 말리기 직전까지만 앉으세요. 너무 깊이 앉지 않아도 됩니다. 앉을 때 상체가 너무 앞으로 기울어져 무릎이 발끝보다 과하게 나가는 것은 주의하세요.';
-          feedbackBox.classList.remove('hidden');
-       } else if (result.category === 'bad_knee') {
-          resultTitle.textContent = '잘못된 스쿼트 중 무릎모임 유형일 가능성이 높습니다.';
-          resultTitle.className = 'result-bad';
-          resultDescription.textContent = 'AI는 무릎이 안쪽으로 모이는 유형으로 예측했어요. 선생님과 함께 확인해 보세요.';
-          probabilityBadge.className = 'probability probability-bad';
-          probabilityBadge.textContent = `확률: ${percentageText}`;
-          feedbackText.textContent = '무릎이 발끝 방향을 따라가도록 하고, 무릎이 안쪽으로 모이지 않게 천천히 움직여 주세요.';
+        resultTitle.textContent = classConfig.say;
+        resultTitle.className = result.category === 'correct' ? 'result-good' : 'result-bad';
+        resultDescription.textContent = classConfig.hint || '';
+        probabilityBadge.className = result.category === 'correct'
+          ? 'probability probability-good' : 'probability probability-bad';
+        probabilityBadge.textContent = `확률: ${percentageText}`;
+        if (classConfig.feedback) {
+          feedbackText.textContent = classConfig.feedback;
           feedbackBox.classList.remove('hidden');
         } else {
-          resultTitle.textContent = '잘 모르겠어요 🤔';
-          resultTitle.className = 'result-unknown';
-          resultDescription.textContent = '몸 전체가 잘 보이도록 다시 촬영해 주세요.';
-          probabilityBadge.className = 'probability probability-unknown';
-          probabilityBadge.textContent = `확률: ${percentageText}`;
           feedbackBox.classList.add('hidden');
         }
 
@@ -636,7 +652,7 @@
           if (!window.tmPose) throw new Error('Teachable Machine Pose 라이브러리가 로드되지 않았습니다.');
 
           await window.tf.ready();
-          model = await window.tmPose.load(CONFIG.MODEL_URL, CONFIG.METADATA_URL);
+          model = await window.tmPose.load(MODEL_URL, METADATA_URL);
           labels = model.getClassLabels ? model.getClassLabels() : [];
           console.info('[Model] 로드 완료, 클래스:', labels);
 
