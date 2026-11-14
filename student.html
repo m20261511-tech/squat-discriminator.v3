@@ -32,7 +32,15 @@
           feedback: "허리를 곧게 펴서 척추중립을 유지하며, 엉덩이가 말리기 직전까지만 앉으세요. 너무 깊이 앉지 않아도 됩니다. 앉을 때 상체가 너무 앞으로 기울어져 무릎이 발끝보다 과하게 나가는 것은 주의하세요."
         }
       },
-      unsure: { say: "잘 모르겠어요 🤔", hint: "몸 전체가 잘 보이도록 다시 촬영해 주세요." },
+      unsure: {
+        say: "잘 모르겠어요 🤔",
+        hint: "다음 방법으로 다시 찍어주세요!",
+        tips: [
+          "몸 전체가 다 나오게 찍어주세요.",
+          "너무 기울지 않게 찍어주세요.",
+          "친구가 너무 작지 않게 찍어주세요. 화면의 절반 이상은 친구의 몸이 나와야 해요."
+        ]
+      },
       modelUrl: "./model.json",
       metadataUrl: "./metadata.json"
     };
@@ -300,6 +308,15 @@
         line-height: 1.6;
       }
 
+      .retry-tips {
+        margin: 8px 0 14px;
+        padding-left: 1.6em;
+        font-size: 1.05rem;
+        line-height: 1.75;
+      }
+      .retry-tips li { padding-left: 4px; margin: 6px 0; }
+
+
       .probability {
         display: inline-block;
         padding: 8px 14px;
@@ -470,6 +487,7 @@
               <p class="confidence-guide">막대가 길수록 AI가 그럴 가능성이 높다고 생각해요. 꼭 맞는다는 뜻은 아니에요!</p>
             </div>
             <p id="resultDescription" class="description">AI가 자세를 분석하고 있어요.</p>
+            <ol id="retryTips" class="retry-tips hidden" aria-label="다시 사진 찍는 방법"></ol>
             <div id="feedbackBox" class="feedback-box hidden">
               <strong>교정 피드백</strong>
               <span id="feedbackText"></span>
@@ -507,6 +525,7 @@
       const resultPanel = document.getElementById('resultPanel');
       const resultTitle = document.getElementById('resultTitle');
       const resultDescription = document.getElementById('resultDescription');
+      const retryTips = document.getElementById('retryTips');
       const probabilityBadge = document.getElementById('probabilityBadge');
       const confidenceTrack = document.getElementById('confidenceTrack');
       const confidenceFill = document.getElementById('confidenceFill');
@@ -585,6 +604,8 @@
         resultTitle.textContent = '결과';
         resultTitle.className = 'result-good';
         resultDescription.textContent = 'AI가 자세를 분석하고 있어요.';
+        retryTips.replaceChildren();
+        retryTips.classList.add('hidden');
         probabilityBadge.className = 'probability probability-good';
         probabilityBadge.textContent = '확률: 0%';
         updateConfidenceBar(0, 'unknown', false);
@@ -620,6 +641,13 @@
           resultTitle.textContent = CONFIG.unsure.say;
           resultTitle.className = 'result-unknown';
           resultDescription.textContent = CONFIG.unsure.hint;
+          retryTips.replaceChildren();
+          (CONFIG.unsure.tips || []).forEach((tip) => {
+            const li = document.createElement('li');
+            li.textContent = tip;
+            retryTips.appendChild(li);
+          });
+          retryTips.classList.toggle('hidden', retryTips.children.length === 0);
           probabilityBadge.className = 'probability probability-unknown';
           probabilityBadge.textContent = `확률: ${percentageText}`;
           updateConfidenceBar(result.probability, 'unknown', false);
@@ -628,6 +656,8 @@
           return;
         }
 
+        retryTips.replaceChildren();
+        retryTips.classList.add('hidden');
         resultTitle.textContent = classConfig.say;
         resultTitle.className = result.category === 'correct' ? 'result-good' : 'result-bad';
         resultDescription.textContent = classConfig.hint || '';
