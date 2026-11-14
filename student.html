@@ -450,8 +450,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8.6/dist/teachablemachine-pose.min.js"></script>
 
     <script>
-      const MODEL_URL = './model.json';
-      const METADATA_URL = './metadata.json';
+      // 설정을 변경할 때는 이 CONFIG 부분만 수정하세요.
+      const CONFIG = {
+        MODEL_URL: './model.json',
+        METADATA_URL: './metadata.json',
+        MIN_CONFIDENCE: 0.75 // 75% 이상일 때 판별 결과 제공
+      };
 
       const modelStatus = document.getElementById('modelStatus');
       const uploadBtn = document.getElementById('uploadBtn');
@@ -570,7 +574,7 @@
       function renderResult(result) {
         const maxProbability = Number(result.probability || 0) * 100;
         const percentageText = `${maxProbability.toFixed(1)}%`;
-        const isHighConfidence = maxProbability >= 75;
+        const isHighConfidence = result.probability >= CONFIG.MIN_CONFIDENCE;
         updateConfidenceBar(result.probability, result.category, isHighConfidence);
 
         resultTitle.textContent = '결과';
@@ -632,7 +636,7 @@
           if (!window.tmPose) throw new Error('Teachable Machine Pose 라이브러리가 로드되지 않았습니다.');
 
           await window.tf.ready();
-          model = await window.tmPose.load(MODEL_URL, METADATA_URL);
+          model = await window.tmPose.load(CONFIG.MODEL_URL, CONFIG.METADATA_URL);
           labels = model.getClassLabels ? model.getClassLabels() : [];
           console.info('[Model] 로드 완료, 클래스:', labels);
 
