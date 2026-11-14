@@ -80,7 +80,7 @@
     <div class="grid">
       <section class="panel">
         <h2>혼동행렬</h2>
-        <p class="matrix-note">행은 실제 클래스, 열은 모델 예측 클래스입니다. 낮은 확률(60% 미만)과 분석 실패는 행렬 외에 별도 집계합니다.</p>
+        <p class="matrix-note">행은 실제 클래스, 열은 모델 예측 클래스입니다. 낮은 확률(75% 미만)과 분석 실패는 행렬 외에 별도 집계합니다.</p>
         <div class="table-wrap"><table id="matrixTable"></table></div>
       </section>
       <section class="panel">
@@ -107,7 +107,7 @@
     // 이 파일은 eval.html로 저장해 index.html 및 모델 파일들과 같은 위치에 배치합니다.
     const MODEL_URL = './model.json';
     const METADATA_URL = './metadata.json';
-    const MIN_CONFIDENCE = 0.6;
+    const MIN_CONFIDENCE = 0.75;
     const CLASS_NAMES = [
       '올바른스쿼트(정면)', '올바른스쿼트(옆모습)',
       '잘못된스쿼트(무릎모임)', '잘못된스쿼트(허리골반말림)'
@@ -239,7 +239,7 @@
         const mapped = canonicalizeClass(rawPredicted);
         // 낮은 확률은 학생용 판별기와 동일하게 '잘 모르겠어요'로 처리합니다.
         const predicted = confidence >= MIN_CONFIDENCE ? mapped : null;
-        const state = !mapped ? '예측 라벨 미매칭' : confidence < MIN_CONFIDENCE ? '판별 보류(60% 미만)' : '분석 성공';
+        const state = !mapped ? '예측 라벨 미매칭' : confidence < MIN_CONFIDENCE ? '판별 보류(75% 미만)' : '분석 성공';
         return {
           fileName: file.name, actual, predicted, rawPredicted, confidence,
           state, error: '', correct: Boolean(actual && predicted && actual === predicted), previewUrl: url
